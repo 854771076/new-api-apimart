@@ -6,10 +6,16 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net/http/httptest"
 	"os"
 
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/pkg/jsplugin"
 	"github.com/QuantumNous/new-api/plugins"
+	taskplugin "github.com/QuantumNous/new-api/relay/channel/task/jsplugin"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
@@ -23,6 +29,7 @@ func main() {
 }
 
 func verify(sourcePath, fixturePath string) error {
+	gin.SetMode(gin.TestMode)
 	source, err := os.ReadFile(sourcePath)
 	if err != nil {
 		return err
@@ -45,12 +52,37 @@ func verify(sourcePath, fixturePath string) error {
 		return fmt.Errorf("APIMart must use a dedicated task-plugin channel")
 	}
 	for _, model := range loaded.Meta.Models {
-		binding, found := registry.Generation().LookupEndpoint("POST", "/v1/responses", model)
-		if !found || binding.Plugin.Meta.Key != "apimart" {
+		matched := false
+		for _, binding := range registry.Generation().LookupEndpointCandidates("POST", "/v1/responses", model) {
+			matched = matched || binding.Plugin.Meta.Key == "apimart"
+		}
+		if !matched {
 			return fmt.Errorf("missing Responses binding for %s", model)
 		}
 	}
-	for _, path := range []string{"/apimart/v1/images/generations", "/apimart/v1/videos/generations"} {
+	for _, claim := range loaded.Meta.Protocols {
+		var paths []string
+		switch claim.Name {
+		case "openai_image":
+			paths = []string{"/v1/images/generations", "/v1/images/edits"}
+		case "openai_video":
+			paths = []string{"/v1/videos"}
+		default:
+			continue
+		}
+		for _, model := range claim.Models {
+			for _, path := range paths {
+				matched := false
+				for _, binding := range registry.Generation().LookupEndpointCandidates("POST", path, model) {
+					matched = matched || binding.Plugin.Meta.Key == "apimart"
+				}
+				if !matched {
+					return fmt.Errorf("missing APIMart binding for %s on %s", model, path)
+				}
+			}
+		}
+	}
+	for _, path := range []string{"/apimart/v1/images/generations", "/apimart/v1/videos/generations", "/apimart/v1/music/generations", "/apimart/v1/midjourney/generations"} {
 		route, found := registry.Generation().LookupDeclaredRoute("POST", path)
 		if !found || route.Plugin.Meta.Key != "apimart" {
 			return fmt.Errorf("missing native route %s", path)
@@ -101,6 +133,46 @@ func verify(sourcePath, fixturePath string) error {
 	if err != nil {
 		return fmt.Errorf("fixture %d/%d: %w", report.Passed, report.Total, err)
 	}
-	fmt.Printf("new-api runtime: %s@%s, %d models, %d/%d fixture cases passed\n", loaded.Meta.Key, loaded.Meta.Version, len(loaded.Meta.Models), report.Passed, report.Total)
+	// Exercise the adaptor's validation and billing boundary, not just JS hooks.
+	var decoded struct {
+		Cases []struct {
+			Name     string `json:"name"`
+			Expected any    `json:"expected"`
+		} `json:"cases"`
+	}
+	if err := common.Unmarshal(fixture, &decoded); err != nil {
+		return err
+	}
+	validated := 0
+	for _, entry := range decoded.Cases {
+		expected, ok := entry.Expected.(map[string]any)
+		if !ok {
+			continue
+		}
+		if expected["kind"] != "submit" || expected["originTaskIds"] != nil {
+			continue // Ownership is validated by the host's origin-task tests.
+		}
+		model, _ := expected["model"].(string)
+		action, _ := expected["action"].(string)
+		info := &relaycommon.RelayInfo{
+			OriginModelName: model,
+			ChannelMeta: &relaycommon.ChannelMeta{ChannelType: constant.ChannelTypeTaskPlugin,
+				ChannelBaseUrl: "https://api.apimart.ai", ApiKey: "fixture-only", UpstreamModelName: model},
+			TaskRelayInfo: &relaycommon.TaskRelayInfo{PublicTaskID: "task_fixture", Action: action},
+		}
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		c.Request = httptest.NewRequest("POST", "/v1/responses", nil)
+		c.Set("task_request", expected["requestBody"])
+		adaptor := taskplugin.New(loaded)
+		adaptor.Init(info)
+		if taskErr := adaptor.ValidateRequestAndSetAction(c, info); taskErr != nil {
+			return fmt.Errorf("host validation %s: %v", entry.Name, taskErr.Error)
+		}
+		if _, err := adaptor.ExtractUsageFactsValidated(c, info); err != nil {
+			return fmt.Errorf("host billing %s: %w", entry.Name, err)
+		}
+		validated++
+	}
+	fmt.Printf("new-api runtime: %s@%s, %d models, %d/%d fixture cases and %d adaptor cases passed\n", loaded.Meta.Key, loaded.Meta.Version, len(loaded.Meta.Models), report.Passed, report.Total, validated)
 	return nil
 }

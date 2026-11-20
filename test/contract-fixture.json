@@ -778,6 +778,2853 @@
         }
       ],
       "expectedError": "Reference-video editing"
+    },
+    {
+      "name": "Seedance 2.5 waits for provider billing",
+      "hook": "parseTaskResult",
+      "args": [
+        {
+          "model": "seedance-2.5"
+        },
+        {
+          "code": 200,
+          "data": {
+            "status": "completed",
+            "result": {
+              "videos": [
+                {
+                  "url": "https://fixture.example/video.mp4"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "expected": {
+        "status": "IN_PROGRESS",
+        "progress": "99%"
+      }
+    },
+    {
+      "name": "Seedance 2.5 validates paid task completion",
+      "hook": "parseTaskResult",
+      "args": [
+        {
+          "model": "seedance-2.5"
+        },
+        {
+          "code": 200,
+          "data": {
+            "status": "completed",
+            "result": {
+              "videos": [
+                {
+                  "url": "https://fixture.example/video.mp4"
+                }
+              ]
+            },
+            "cost": 0.12,
+            "credits_cost": 1.2
+          }
+        }
+      ],
+      "expected": {
+        "status": "SUCCESS",
+        "progress": "100%",
+        "url": "https://fixture.example/video.mp4"
+      }
+    },
+    {
+      "name": "new image credit settlement uses provider account facts",
+      "hook": "extractUsageOnComplete",
+      "args": [
+        {
+          "model": "gpt-image-2.6-flare"
+        },
+        {
+          "status": "SUCCESS"
+        },
+        {
+          "code": 200,
+          "data": {
+            "cost": 0.12,
+            "credits_cost": 1.2
+          }
+        }
+      ],
+      "expected": {
+        "credits": 1.2
+      }
+    },
+    {
+      "name": "invalid provider credit charge is rejected",
+      "hook": "parseTaskResult",
+      "args": [
+        {
+          "model": "seedance-2.5"
+        },
+        {
+          "code": 200,
+          "data": {
+            "status": "completed",
+            "result": {
+              "videos": [
+                {
+                  "url": "https://fixture.example/video.mp4"
+                }
+              ]
+            },
+            "credits_cost": -1
+          }
+        }
+      ],
+      "expectedError": "settlement charge is invalid"
+    },
+    {
+      "name": "provider charge disagreement is rejected",
+      "hook": "extractUsageOnComplete",
+      "args": [
+        {
+          "model": "seedance-2.5"
+        },
+        {
+          "status": "SUCCESS"
+        },
+        {
+          "code": 200,
+          "data": {
+            "cost": 1,
+            "credits_cost": 1
+          }
+        }
+      ],
+      "expectedError": "amounts disagree"
+    },
+    {
+      "name": "zero cost remains zero",
+      "hook": "extractUsageOnComplete",
+      "args": [
+        {
+          "model": "seedance-2.5"
+        },
+        {
+          "status": "SUCCESS"
+        },
+        {
+          "code": 200,
+          "data": {
+            "cost": 0
+          }
+        }
+      ],
+      "expected": {
+        "credits": 0
+      }
+    },
+    {
+      "name": "music completion accepts audio payload",
+      "hook": "parseTaskResult",
+      "args": [
+        {
+          "model": "flowmusic"
+        },
+        {
+          "code": 200,
+          "data": {
+            "status": "completed",
+            "cost": 0.06,
+            "result": {
+              "music": [
+                {
+                  "audio_url": "https://fixture.example/music.mp3"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "expected": {
+        "status": "SUCCESS",
+        "progress": "100%"
+      }
+    },
+    {
+      "name": "music publishes audio artifact",
+      "hook": "listArtifacts",
+      "args": [
+        {
+          "status": "SUCCESS",
+          "data": {
+            "code": 200,
+            "data": {
+              "status": "completed",
+              "cost": 0.06,
+              "result": {
+                "music": [
+                  {
+                    "audio_url": "https://fixture.example/music.mp3"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ],
+      "expected": [
+        {
+          "key": "audio_0",
+          "type": "audio"
+        }
+      ]
+    },
+    {
+      "name": "music download never receives channel key",
+      "hook": "buildContentRequest",
+      "args": [
+        {
+          "data": {
+            "code": 200,
+            "data": {
+              "status": "completed",
+              "cost": 0.06,
+              "result": {
+                "music": [
+                  {
+                    "audio_url": "https://fixture.example/music.mp3"
+                  }
+                ]
+              }
+            }
+          },
+          "artifactKey": "audio_0",
+          "apiKey": "fixture-only",
+          "clientRequest": {
+            "method": "GET"
+          }
+        }
+      ],
+      "expected": {
+        "url": "https://fixture.example/music.mp3",
+        "method": "GET",
+        "credentialless": true
+      }
+    },
+    {
+      "name": "Context IR completes with text rather than a video",
+      "hook": "parseTaskResult",
+      "args": [
+        {
+          "model": "MiniMax-H3-Context-IR"
+        },
+        {
+          "code": 200,
+          "data": {
+            "status": "completed",
+            "cost": 0.01,
+            "result": {
+              "prompt": "Enhanced prompt"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "status": "SUCCESS",
+        "progress": "100%"
+      }
+    },
+    {
+      "name": "private source task cannot bypass ownership",
+      "hook": "buildSubmitRequest",
+      "args": [
+        {
+          "model": "MiniMax-H3-Regeneration",
+          "requestBody": {
+            "source_task_id": "private_task"
+          },
+          "baseUrl": "https://api.apimart.ai",
+          "apiKey": "fixture-only"
+        }
+      ],
+      "expectedError": "owned gateway task"
+    },
+    {
+      "name": "owned source task maps only after host authorization",
+      "hook": "buildSubmitRequest",
+      "args": [
+        {
+          "model": "MiniMax-H3-Regeneration",
+          "requestBody": {
+            "source_task_id": "public_task"
+          },
+          "originTasks": [
+            {
+              "taskId": "public_task",
+              "upstreamTaskId": "upstream_task",
+              "status": "SUCCESS"
+            }
+          ],
+          "baseUrl": "https://api.apimart.ai",
+          "apiKey": "fixture-only"
+        }
+      ],
+      "expected": {
+        "url": "https://api.apimart.ai/v1/videos/generations",
+        "method": "POST",
+        "headers": {
+          "Authorization": "Bearer fixture-only",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "source_task_id": "upstream_task",
+          "model": "MiniMax-H3-Regeneration"
+        }
+      }
+    },
+    {
+      "name": "native nested batch count cannot bypass reservation",
+      "hook": "native",
+      "path": [
+        "decodeImage"
+      ],
+      "args": [
+        {
+          "model": "seedream-5-5",
+          "body": {
+            "kind": "json",
+            "value": {
+              "prompt": "Circle",
+              "sequential_image_generation_options": {
+                "max_images": 1000
+              }
+            }
+          }
+        }
+      ],
+      "expectedError": "max_images must be an integer"
+    },
+    {
+      "name": "nested private task references are rejected",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "model": "wan2.7",
+          "body": {
+            "kind": "json",
+            "value": {
+              "prompt": "Circle",
+              "parameters": {
+                "source_task_id": "private_task"
+              }
+            }
+          }
+        }
+      ],
+      "expectedError": "top-level gateway task"
+    },
+    {
+      "name": "Official request images/flux-2/generation: flux-2-pro",
+      "hook": "native",
+      "path": [
+        "decodeImage"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "flux-2-pro",
+              "prompt": "Contract fixture prompt",
+              "resolution": "2MP",
+              "size": "16:9",
+              "output_format": "jpeg"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "flux-2-pro",
+        "action": "text_to_image",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "resolution": "2MP",
+          "size": "16:9",
+          "output_format": "jpeg",
+          "n": 1
+        }
+      }
+    },
+    {
+      "name": "Official request images/flux-3-image-klein/generation: flux-3-image-klein",
+      "hook": "native",
+      "path": [
+        "decodeImage"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "flux-3-image-klein",
+              "prompt": "Contract fixture prompt",
+              "aspect_ratio": "21:9",
+              "resolution": "2k"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "flux-3-image-klein",
+        "action": "text_to_image",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "aspect_ratio": "21:9",
+          "resolution": "2k",
+          "n": 1
+        }
+      }
+    },
+    {
+      "name": "Official request images/flux-3-image/generation: flux-3-image",
+      "hook": "native",
+      "path": [
+        "decodeImage"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "flux-3-image",
+              "prompt": "Contract fixture prompt",
+              "aspect_ratio": "21:9",
+              "resolution": "2k"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "flux-3-image",
+        "action": "text_to_image",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "aspect_ratio": "21:9",
+          "resolution": "2k",
+          "n": 1
+        }
+      }
+    },
+    {
+      "name": "Official request images/flux-kontext/generation: flux-kontext-pro",
+      "hook": "native",
+      "path": [
+        "decodeImage"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "flux-kontext-pro",
+              "prompt": "Contract fixture prompt",
+              "image_urls": [
+                "https://example.com/portrait.jpg"
+              ],
+              "size": "16:9",
+              "output_format": "png"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "flux-kontext-pro",
+        "action": "image_to_image",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "image_urls": [
+            "https://example.com/portrait.jpg"
+          ],
+          "size": "16:9",
+          "output_format": "png",
+          "n": 1
+        }
+      }
+    },
+    {
+      "name": "Official request images/gemini-2.5-flash/generation: gemini-2.5-flash-image-preview",
+      "hook": "native",
+      "path": [
+        "decodeImage"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "gemini-2.5-flash-image-preview",
+              "prompt": "Contract fixture prompt",
+              "size": "1:1",
+              "n": 1,
+              "image_urls": [
+                "https://openai-documentation.vercel.app/images/cat_and_otter.png"
+              ]
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "gemini-2.5-flash-image-preview",
+        "action": "image_to_image",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "size": "1:1",
+          "n": 1,
+          "image_urls": [
+            "https://openai-documentation.vercel.app/images/cat_and_otter.png"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Official request images/gemini-3-pro/generation: gemini-3-pro-image-preview",
+      "hook": "native",
+      "path": [
+        "decodeImage"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "gemini-3-pro-image-preview",
+              "prompt": "Contract fixture prompt",
+              "size": "1:1",
+              "n": 1,
+              "resolution": "1K"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "gemini-3-pro-image-preview",
+        "action": "text_to_image",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "size": "1:1",
+          "n": 1,
+          "resolution": "1K"
+        }
+      }
+    },
+    {
+      "name": "Official request images/gemini-3.1-flash/generation-lite: gemini-3.1-flash-lite-image",
+      "hook": "native",
+      "path": [
+        "decodeImage"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "gemini-3.1-flash-lite-image",
+              "prompt": "Contract fixture prompt",
+              "size": "16:9",
+              "resolution": "1K",
+              "n": 1
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "gemini-3.1-flash-lite-image",
+        "action": "text_to_image",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "size": "16:9",
+          "resolution": "1K",
+          "n": 1
+        }
+      }
+    },
+    {
+      "name": "Official request images/gemini-3.1-flash/generation: gemini-3.1-flash-image-preview",
+      "hook": "native",
+      "path": [
+        "decodeImage"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "gemini-3.1-flash-image-preview",
+              "prompt": "Contract fixture prompt",
+              "size": "16:9",
+              "resolution": "2K",
+              "n": 1
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "gemini-3.1-flash-image-preview",
+        "action": "text_to_image",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "size": "16:9",
+          "resolution": "2K",
+          "n": 1
+        }
+      }
+    },
+    {
+      "name": "Official request images/gemini-nano-banana-2.1/generation: gemini-nano-banana-2.1",
+      "hook": "native",
+      "path": [
+        "decodeImage"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "gemini-nano-banana-2.1",
+              "prompt": "Contract fixture prompt",
+              "size": "16:9",
+              "resolution": "2K",
+              "n": 1
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "gemini-nano-banana-2.1",
+        "action": "text_to_image",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "size": "16:9",
+          "resolution": "2K",
+          "n": 1
+        }
+      }
+    },
+    {
+      "name": "Official request images/gpt-image-1/generation: gpt-image-1-official",
+      "hook": "native",
+      "path": [
+        "decodeImage"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "gpt-image-1-official",
+              "prompt": "Contract fixture prompt",
+              "size": "1:1",
+              "quality": "auto",
+              "n": 1
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "gpt-image-1-official",
+        "action": "text_to_image",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "size": "1:1",
+          "quality": "auto",
+          "n": 1
+        }
+      }
+    },
+    {
+      "name": "Official request images/grok-imagine-2.0-ext/generation: grok-imagine-2.0-ext",
+      "hook": "native",
+      "path": [
+        "decodeImage"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "grok-imagine-2.0-ext",
+              "prompt": "Contract fixture prompt",
+              "n": 1,
+              "size": "1:1",
+              "resolution": "quality",
+              "response_format": "url"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "grok-imagine-2.0-ext",
+        "action": "text_to_image",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "n": 1,
+          "size": "1:1",
+          "resolution": "quality"
+        }
+      }
+    },
+    {
+      "name": "Official request images/grok-imagine-2.0-ext/official: grok-imagine-image-2.0",
+      "hook": "native",
+      "path": [
+        "decodeImage"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "grok-imagine-image-2.0",
+              "prompt": "Contract fixture prompt",
+              "n": 1,
+              "aspect_ratio": "16:9",
+              "resolution": "2k",
+              "quality": "medium"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "grok-imagine-image-2.0",
+        "action": "text_to_image",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "n": 1,
+          "aspect_ratio": "16:9",
+          "resolution": "2k",
+          "quality": "medium"
+        }
+      }
+    },
+    {
+      "name": "Official request images/grok-imagine/generation: grok-imagine-1.5-apimart",
+      "hook": "native",
+      "path": [
+        "decodeImage"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "grok-imagine-1.5-apimart",
+              "prompt": "Contract fixture prompt",
+              "size": "1:1",
+              "n": 1
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "grok-imagine-1.5-apimart",
+        "action": "text_to_image",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "size": "1:1",
+          "n": 1
+        }
+      }
+    },
+    {
+      "name": "Official request images/grok-imagine/generation: grok-imagine-image",
+      "hook": "native",
+      "path": [
+        "decodeImage"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "grok-imagine-image",
+              "prompt": "Contract fixture prompt",
+              "n": 1,
+              "aspect_ratio": "1:1",
+              "resolution": "2k"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "grok-imagine-image",
+        "action": "text_to_image",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "n": 1,
+          "aspect_ratio": "1:1",
+          "resolution": "2k"
+        }
+      }
+    },
+    {
+      "name": "Official request images/hy-image-v3.5-preview/generation: hy-image-v3.5-preview",
+      "hook": "native",
+      "path": [
+        "decodeImage"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "hy-image-v3.5-preview",
+              "prompt": "Contract fixture prompt",
+              "size": "16:9",
+              "resolution": "2K"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "hy-image-v3.5-preview",
+        "action": "text_to_image",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "size": "16:9",
+          "resolution": "2K",
+          "n": 1
+        }
+      }
+    },
+    {
+      "name": "Official request images/kling-v4-image/generation: kling-v4-image",
+      "hook": "native",
+      "path": [
+        "decodeImage"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "kling-v4-image",
+              "prompt": "Contract fixture prompt",
+              "size": "1:1",
+              "resolution": "2K",
+              "n": 1,
+              "nsfw_check": true
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "kling-v4-image",
+        "action": "text_to_image",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "size": "1:1",
+          "resolution": "2K",
+          "n": 1,
+          "nsfw_check": true
+        }
+      }
+    },
+    {
+      "name": "Official request images/kling-v4-long-image/generation: kling-v4-long-image",
+      "hook": "native",
+      "path": [
+        "decodeImage"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "kling-v4-long-image",
+              "skill": "ecommerce",
+              "prompt": "Contract fixture prompt",
+              "image_urls": [
+                "https://example.com/product.png"
+              ],
+              "length": "medium",
+              "resolution": "1K",
+              "nsfw_check": true
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "kling-v4-long-image",
+        "action": "image_to_image",
+        "requestBody": {
+          "skill": "ecommerce",
+          "prompt": "Contract fixture prompt",
+          "image_urls": [
+            "https://example.com/product.png"
+          ],
+          "length": "medium",
+          "resolution": "1K",
+          "nsfw_check": true,
+          "n": 1
+        }
+      }
+    },
+    {
+      "name": "Official request images/mai-image-2.6/generation: mai-image-2.6",
+      "hook": "native",
+      "path": [
+        "decodeImage"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "mai-image-2.6",
+              "prompt": "Contract fixture prompt",
+              "size": "16:9",
+              "resolution": "2K"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "mai-image-2.6",
+        "action": "text_to_image",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "size": "16:9",
+          "resolution": "2K",
+          "n": 1
+        }
+      }
+    },
+    {
+      "name": "Official request images/mai-image-2.7/generation: mai-image-2.7",
+      "hook": "native",
+      "path": [
+        "decodeImage"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "mai-image-2.7",
+              "prompt": "Contract fixture prompt",
+              "size": "16:9",
+              "resolution": "2K"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "mai-image-2.7",
+        "action": "text_to_image",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "size": "16:9",
+          "resolution": "2K",
+          "n": 1
+        }
+      }
+    },
+    {
+      "name": "Official request images/minimax-h3-image-highspeed/generation: minimax-h3-image-highspeed",
+      "hook": "native",
+      "path": [
+        "decodeImage"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "minimax-h3-image-highspeed",
+              "prompt": "Contract fixture prompt",
+              "size": "16:9",
+              "resolution": "2K",
+              "n": 1
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "minimax-h3-image-highspeed",
+        "action": "text_to_image",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "size": "16:9",
+          "resolution": "2K",
+          "n": 1
+        }
+      }
+    },
+    {
+      "name": "Official request images/minimax-h3-image/generation: minimax-h3-image",
+      "hook": "native",
+      "path": [
+        "decodeImage"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "minimax-h3-image",
+              "prompt": "Contract fixture prompt",
+              "size": "16:9",
+              "resolution": "2K",
+              "n": 1
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "minimax-h3-image",
+        "action": "text_to_image",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "size": "16:9",
+          "resolution": "2K",
+          "n": 1
+        }
+      }
+    },
+    {
+      "name": "Official request images/muse-image-ext/generation: muse-image-ext",
+      "hook": "native",
+      "path": [
+        "decodeImage"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "muse-image-ext",
+              "prompt": "Contract fixture prompt",
+              "aspect_ratio": "1:1",
+              "n": 1
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "muse-image-ext",
+        "action": "text_to_image",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "aspect_ratio": "1:1",
+          "n": 1
+        }
+      }
+    },
+    {
+      "name": "Official request images/qwen-image-3.0/generation: qwen-image-3.0",
+      "hook": "native",
+      "path": [
+        "decodeImage"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "qwen-image-3.0",
+              "prompt": "Contract fixture prompt",
+              "size": "16:9",
+              "resolution": "1K"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "qwen-image-3.0",
+        "action": "text_to_image",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "size": "16:9",
+          "resolution": "1K",
+          "n": 1
+        }
+      }
+    },
+    {
+      "name": "Official request images/qwen-image/generation: qwen-image-2.0",
+      "hook": "native",
+      "path": [
+        "decodeImage"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "qwen-image-2.0",
+              "prompt": "Contract fixture prompt"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "qwen-image-2.0",
+        "action": "text_to_image",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "n": 1
+        }
+      }
+    },
+    {
+      "name": "Official request images/seedream-4/generation: seedream-4.0",
+      "hook": "native",
+      "path": [
+        "decodeImage"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "seedream-4.0",
+              "prompt": "Contract fixture prompt",
+              "size": "1:1",
+              "resolution": "2K",
+              "n": 1,
+              "image_urls": [
+                "https://cdn.apimart.ai/doc/1761215838466614297_9852.png"
+              ]
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "seedream-4.0",
+        "action": "image_to_image",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "size": "1:1",
+          "resolution": "2K",
+          "n": 1,
+          "image_urls": [
+            "https://cdn.apimart.ai/doc/1761215838466614297_9852.png"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Official request images/seedream-5-0-flash/generation: seedream-5-0-flash",
+      "hook": "native",
+      "path": [
+        "decodeImage"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "seedream-5-0-flash",
+              "prompt": "Contract fixture prompt",
+              "size": "16:9",
+              "resolution": "2K"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "seedream-5-0-flash",
+        "action": "text_to_image",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "size": "16:9",
+          "resolution": "2K",
+          "n": 1
+        }
+      }
+    },
+    {
+      "name": "Official request images/seedream-5-0-pro/generation: seedream-5-0-pro",
+      "hook": "native",
+      "path": [
+        "decodeImage"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "seedream-5-0-pro",
+              "prompt": "Contract fixture prompt",
+              "size": "16:9",
+              "resolution": "2K"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "seedream-5-0-pro",
+        "action": "text_to_image",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "size": "16:9",
+          "resolution": "2K",
+          "n": 1
+        }
+      }
+    },
+    {
+      "name": "Official request images/seedream-5-5/generation: seedream-5-5",
+      "hook": "native",
+      "path": [
+        "decodeImage"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "seedream-5-5",
+              "prompt": "Contract fixture prompt",
+              "size": "2K",
+              "background": "transparent",
+              "output_format": "png",
+              "nsfw_check": true
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "seedream-5-5",
+        "action": "text_to_image",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "size": "2K",
+          "background": "transparent",
+          "output_format": "png",
+          "nsfw_check": true,
+          "n": 1
+        }
+      }
+    },
+    {
+      "name": "Official request images/seedream-5-lite/generation: seedream-5-0-lite",
+      "hook": "native",
+      "path": [
+        "decodeImage"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "seedream-5-0-lite",
+              "prompt": "Contract fixture prompt",
+              "size": "16:9",
+              "resolution": "2K",
+              "n": 1
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "seedream-5-0-lite",
+        "action": "text_to_image",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "size": "16:9",
+          "resolution": "2K",
+          "n": 1
+        }
+      }
+    },
+    {
+      "name": "Official request images/wan2.7-image/generation: wan2.7-image-pro",
+      "hook": "native",
+      "path": [
+        "decodeImage"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "wan2.7-image-pro",
+              "prompt": "Contract fixture prompt"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "wan2.7-image-pro",
+        "action": "text_to_image",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "n": 1
+        }
+      }
+    },
+    {
+      "name": "Official request images/z-image-turbo/generation: z-image-turbo",
+      "hook": "native",
+      "path": [
+        "decodeImage"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "z-image-turbo",
+              "prompt": "Contract fixture prompt"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "z-image-turbo",
+        "action": "text_to_image",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "n": 1
+        }
+      }
+    },
+    {
+      "name": "Official request videos/apimart-zoe/generation: apimart-zoe",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "apimart-zoe",
+              "prompt": "Contract fixture prompt",
+              "resolution": "1080p",
+              "aspect_ratio": "16:9",
+              "duration": 8,
+              "audio": true,
+              "nsfw_check": true,
+              "return_last_frame": true
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "apimart-zoe",
+        "action": "text_to_video",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "resolution": "1080p",
+          "aspect_ratio": "16:9",
+          "duration": 8,
+          "audio": true,
+          "nsfw_check": true,
+          "return_last_frame": true
+        }
+      }
+    },
+    {
+      "name": "Official request videos/doubao/generation: seedance-1-0-pro-fast",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "seedance-1-0-pro-fast",
+              "prompt": "Contract fixture prompt",
+              "duration": 5,
+              "aspect_ratio": "16:9",
+              "resolution": "1080p"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "seedance-1-0-pro-fast",
+        "action": "text_to_video",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "duration": 5,
+          "aspect_ratio": "16:9",
+          "resolution": "1080p"
+        }
+      }
+    },
+    {
+      "name": "Official request videos/flux-3-video/generation: flux-3-video",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "flux-3-video",
+              "prompt": "Contract fixture prompt",
+              "duration": 5,
+              "resolution": "hd",
+              "aspect_ratio": "16:9"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "flux-3-video",
+        "action": "text_to_video",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "duration": 5,
+          "resolution": "hd",
+          "aspect_ratio": "16:9"
+        }
+      }
+    },
+    {
+      "name": "Official request videos/gemini-omni-1.2-flash-ext/generation: gemini-omni-1.2-flash-ext",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "gemini-omni-1.2-flash-ext",
+              "prompt": "Contract fixture prompt",
+              "duration": 10,
+              "resolution": "1080p",
+              "aspect_ratio": "9:16"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "gemini-omni-1.2-flash-ext",
+        "action": "text_to_video",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "duration": 10,
+          "resolution": "1080p",
+          "aspect_ratio": "9:16"
+        }
+      }
+    },
+    {
+      "name": "Official request videos/gemini-omni-1.2-flash/generation: gemini-omni-1.2-flash",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "gemini-omni-1.2-flash",
+              "prompt": "Contract fixture prompt",
+              "aspect_ratio": "16:9",
+              "resolution": "720p",
+              "duration": 15
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "gemini-omni-1.2-flash",
+        "action": "text_to_video",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "aspect_ratio": "16:9",
+          "resolution": "720p",
+          "duration": 15
+        }
+      }
+    },
+    {
+      "name": "Official request videos/grok-imagine/generation: grok-imagine-1.5-video-ext",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "grok-imagine-1.5-video-ext",
+              "prompt": "Contract fixture prompt",
+              "size": "16:9",
+              "duration": 6,
+              "resolution": "720p"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "grok-imagine-1.5-video-ext",
+        "action": "text_to_video",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "size": "16:9",
+          "duration": 6,
+          "resolution": "720p"
+        }
+      }
+    },
+    {
+      "name": "Official request videos/grok-imagine/official: grok-imagine-video",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "grok-imagine-video",
+              "prompt": "Contract fixture prompt",
+              "duration": 5,
+              "resolution": "720p",
+              "aspect_ratio": "16:9",
+              "nsfw_check": true
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "grok-imagine-video",
+        "action": "text_to_video",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "duration": 5,
+          "resolution": "720p",
+          "aspect_ratio": "16:9",
+          "nsfw_check": true
+        }
+      }
+    },
+    {
+      "name": "Official request videos/happyhorse-1.0/generation: happyhorse-1.0",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "happyhorse-1.0",
+              "prompt": "Contract fixture prompt",
+              "resolution": "1080P",
+              "size": "16:9",
+              "duration": 5,
+              "seed": 42
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "happyhorse-1.0",
+        "action": "text_to_video",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "resolution": "1080P",
+          "size": "16:9",
+          "duration": 5,
+          "seed": 42
+        }
+      }
+    },
+    {
+      "name": "Official request videos/happyhorse-1.1/generation: happyhorse-1.1",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "happyhorse-1.1",
+              "prompt": "Contract fixture prompt",
+              "resolution": "1080P",
+              "size": "16:9",
+              "duration": 5,
+              "seed": 42
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "happyhorse-1.1",
+        "action": "text_to_video",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "resolution": "1080P",
+          "size": "16:9",
+          "duration": 5,
+          "seed": 42
+        }
+      }
+    },
+    {
+      "name": "Official request videos/kling-v2-6/kling-v2-6-motion-control-generation: kling-v2-6-motion-control",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "kling-v2-6-motion-control",
+              "prompt": "Contract fixture prompt",
+              "image_url": "https://example.com/ref-image.png",
+              "video_url": "https://example.com/ref-video-8s.mp4",
+              "keep_original_sound": "yes",
+              "character_orientation": "image",
+              "mode": "std",
+              "watermark_info": {
+                "enabled": false
+              }
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "kling-v2-6-motion-control",
+        "action": "text_to_video",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "image_url": "https://example.com/ref-image.png",
+          "video_url": "https://example.com/ref-video-8s.mp4",
+          "keep_original_sound": "yes",
+          "character_orientation": "image",
+          "mode": "std",
+          "watermark_info": {
+            "enabled": false
+          }
+        }
+      }
+    },
+    {
+      "name": "Official request videos/kling-v4-flash/generation: kling-v4-flash",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "kling-v4-flash",
+              "prompt": "Contract fixture prompt",
+              "duration": 5,
+              "resolution": "720p",
+              "aspect_ratio": "9:16"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "kling-v4-flash",
+        "action": "text_to_video",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "duration": 5,
+          "resolution": "720p",
+          "aspect_ratio": "9:16"
+        }
+      }
+    },
+    {
+      "name": "Official request videos/kling-v4/generation: kling-v4",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "kling-v4",
+              "prompt": "Contract fixture prompt",
+              "duration": 5,
+              "resolution": "720p",
+              "aspect_ratio": "9:16"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "kling-v4",
+        "action": "text_to_video",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "duration": 5,
+          "resolution": "720p",
+          "aspect_ratio": "9:16"
+        }
+      }
+    },
+    {
+      "name": "Official request videos/minimax-h3/context-ir: MiniMax-H3-Context-IR",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "MiniMax-H3-Context-IR",
+              "prompt": "Contract fixture prompt",
+              "duration": 5,
+              "aspect_ratio": "16:9"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "MiniMax-H3-Context-IR",
+        "action": "text_to_text",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "duration": 5,
+          "aspect_ratio": "16:9"
+        }
+      }
+    },
+    {
+      "name": "Official request videos/minimax-h3/generation: MiniMax-H3",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "MiniMax-H3",
+              "prompt": "Contract fixture prompt",
+              "duration": 5,
+              "resolution": "2K",
+              "aspect_ratio": "16:9"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "MiniMax-H3",
+        "action": "text_to_video",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "duration": 5,
+          "resolution": "2K",
+          "aspect_ratio": "16:9"
+        }
+      }
+    },
+    {
+      "name": "Official request videos/minimax-h3/max: MiniMax-H3-Max",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "MiniMax-H3-Max",
+              "prompt": "Contract fixture prompt",
+              "duration": 5,
+              "resolution": "768P",
+              "aspect_ratio": "16:9"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "MiniMax-H3-Max",
+        "action": "text_to_video",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "duration": 5,
+          "resolution": "768P",
+          "aspect_ratio": "16:9"
+        }
+      }
+    },
+    {
+      "name": "Official request videos/minimax-h3/regeneration: MiniMax-H3-Regeneration",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "MiniMax-H3-Regeneration",
+              "source_task_id": "public_fixture"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "MiniMax-H3-Regeneration",
+        "action": "text_to_video",
+        "requestBody": {
+          "source_task_id": "public_fixture"
+        },
+        "originTaskIds": [
+          "public_fixture"
+        ]
+      }
+    },
+    {
+      "name": "Official request videos/minimax-hailuo-2.3/generation: MiniMax-Hailuo-2.3",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "MiniMax-Hailuo-2.3",
+              "prompt": "Contract fixture prompt",
+              "duration": 6,
+              "resolution": "768p",
+              "prompt_optimizer": true,
+              "fast_pretreatment": false,
+              "watermark": false
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "MiniMax-Hailuo-2.3",
+        "action": "text_to_video",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "duration": 6,
+          "resolution": "768p",
+          "prompt_optimizer": true,
+          "fast_pretreatment": false,
+          "watermark": false
+        }
+      }
+    },
+    {
+      "name": "Official request videos/minimax-hailuo/generation: MiniMax-Hailuo-02",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "MiniMax-Hailuo-02",
+              "prompt": "Contract fixture prompt",
+              "duration": 5,
+              "resolution": "768p",
+              "prompt_optimizer": true,
+              "fast_pretreatment": false,
+              "watermark": false
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "MiniMax-Hailuo-02",
+        "action": "text_to_video",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "duration": 5,
+          "resolution": "768p",
+          "prompt_optimizer": true,
+          "fast_pretreatment": false,
+          "watermark": false
+        }
+      }
+    },
+    {
+      "name": "Official request videos/muse-video-ext/generation: muse-video-ext",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "muse-video-ext",
+              "prompt": "Contract fixture prompt",
+              "aspect_ratio": "16:9",
+              "duration": 5,
+              "resolution": "720p"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "muse-video-ext",
+        "action": "text_to_video",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "aspect_ratio": "16:9",
+          "duration": 5,
+          "resolution": "720p"
+        }
+      }
+    },
+    {
+      "name": "Official request videos/omni-flash-ext/generation: gemini-omni-1.1-flash-ext",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "gemini-omni-1.1-flash-ext",
+              "prompt": "Contract fixture prompt",
+              "duration": 10,
+              "resolution": "1080p",
+              "aspect_ratio": "9:16"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "gemini-omni-1.1-flash-ext",
+        "action": "text_to_video",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "duration": 10,
+          "resolution": "1080p",
+          "aspect_ratio": "9:16"
+        }
+      }
+    },
+    {
+      "name": "Official request videos/pixverse-v6-max/generation: pixverse-v6-max",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "pixverse-v6-max",
+              "prompt": "Contract fixture prompt",
+              "duration": 5,
+              "resolution": "720p",
+              "aspect_ratio": "16:9",
+              "audio": true
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "pixverse-v6-max",
+        "action": "text_to_video",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "duration": 5,
+          "resolution": "720p",
+          "aspect_ratio": "16:9",
+          "audio": true
+        }
+      }
+    },
+    {
+      "name": "Official request videos/pixverse-v6/generation: pixverse-v6",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "pixverse-v6",
+              "prompt": "Contract fixture prompt",
+              "size": "16:9",
+              "resolution": "540p",
+              "duration": 5
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "pixverse-v6",
+        "action": "text_to_video",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "size": "16:9",
+          "resolution": "540p",
+          "duration": 5
+        }
+      }
+    },
+    {
+      "name": "Official request videos/skyreels-v4/generation: skyreels-v4-fast",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "skyreels-v4-fast",
+              "prompt": "Contract fixture prompt",
+              "duration": 5,
+              "resolution": "1080p",
+              "aspect_ratio": "16:9",
+              "prompt_optimizer": true
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "skyreels-v4-fast",
+        "action": "text_to_video",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "duration": 5,
+          "resolution": "1080p",
+          "aspect_ratio": "16:9",
+          "prompt_optimizer": true
+        }
+      }
+    },
+    {
+      "name": "Official request videos/veo3/generation-official: veo3.1-fast-official",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "veo3.1-fast-official",
+              "prompt": "Contract fixture prompt",
+              "duration": 8,
+              "aspect_ratio": "16:9"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "veo3.1-fast-official",
+        "action": "text_to_video",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "duration": 8,
+          "aspect_ratio": "16:9"
+        }
+      }
+    },
+    {
+      "name": "Official request videos/veo3/generation: veo3.1-fast",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "veo3.1-fast",
+              "prompt": "Contract fixture prompt",
+              "duration": 8,
+              "aspect_ratio": "16:9",
+              "image_urls": [
+                "https://cdn.apimart.ai/doc/9998238783208208-9972597b-255d-4e7e-9649-e6ee38a837aa-image_task_01K88B53MTK41PP5KGDTG2PA5P_0.png"
+              ]
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "veo3.1-fast",
+        "action": "image_to_video",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "duration": 8,
+          "aspect_ratio": "16:9",
+          "image_urls": [
+            "https://cdn.apimart.ai/doc/9998238783208208-9972597b-255d-4e7e-9649-e6ee38a837aa-image_task_01K88B53MTK41PP5KGDTG2PA5P_0.png"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Official request videos/vidu-q3-pro/generation: viduq3-pro",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "viduq3-pro",
+              "prompt": "Contract fixture prompt",
+              "duration": 8,
+              "resolution": "1080p",
+              "aspect_ratio": "16:9"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "viduq3-pro",
+        "action": "text_to_video",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "duration": 8,
+          "resolution": "1080p",
+          "aspect_ratio": "16:9"
+        }
+      }
+    },
+    {
+      "name": "Official request videos/vidu-q3/generation: viduq3",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "viduq3",
+              "prompt": "Contract fixture prompt",
+              "image_urls": [
+                "https://example.com/santa.png",
+                "https://example.com/bear.png"
+              ],
+              "duration": 8,
+              "resolution": "720p",
+              "aspect_ratio": "16:9"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "viduq3",
+        "action": "image_to_video",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "image_urls": [
+            "https://example.com/santa.png",
+            "https://example.com/bear.png"
+          ],
+          "duration": 8,
+          "resolution": "720p",
+          "aspect_ratio": "16:9"
+        }
+      }
+    },
+    {
+      "name": "Official request videos/vidu-q4-preview/generation: viduq4-preview",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "viduq4-preview",
+              "prompt": "Contract fixture prompt",
+              "image_urls": [
+                "https://example.com/first-frame.png"
+              ],
+              "duration": 5,
+              "resolution": "1080p"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "viduq4-preview",
+        "action": "image_to_video",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "image_urls": [
+            "https://example.com/first-frame.png"
+          ],
+          "duration": 5,
+          "resolution": "1080p"
+        }
+      }
+    },
+    {
+      "name": "Official request videos/wan2.5/generation: wan2.5-preview",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "wan2.5-preview",
+              "prompt": "Contract fixture prompt",
+              "size": "16:9",
+              "resolution": "720p",
+              "duration": 5
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "wan2.5-preview",
+        "action": "text_to_video",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "size": "16:9",
+          "resolution": "720p",
+          "duration": 5
+        }
+      }
+    },
+    {
+      "name": "Official request videos/wan2.6/generation: wan2.6",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "wan2.6",
+              "prompt": "Contract fixture prompt",
+              "aspect_ratio": "16:9",
+              "resolution": "720p",
+              "duration": 5
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "wan2.6",
+        "action": "text_to_video",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "aspect_ratio": "16:9",
+          "resolution": "720p",
+          "duration": 5
+        }
+      }
+    },
+    {
+      "name": "Official request videos/wan2.6/i2v-flash-generation: wan2.6-i2v-flash",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "wan2.6-i2v-flash",
+              "prompt": "Contract fixture prompt",
+              "image_urls": [
+                "https://example.com/portrait.jpg"
+              ],
+              "resolution": "1080p",
+              "duration": 5
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "wan2.6-i2v-flash",
+        "action": "image_to_video",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "image_urls": [
+            "https://example.com/portrait.jpg"
+          ],
+          "resolution": "1080p",
+          "duration": 5
+        }
+      }
+    },
+    {
+      "name": "Official request videos/wan2.7-r2v/generation: wan2.7-r2v",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "wan2.7-r2v",
+              "prompt": "Contract fixture prompt",
+              "image_with_roles": [
+                {
+                  "url": "https://cdn.example.com/character.jpg",
+                  "role": "reference_image"
+                }
+              ],
+              "resolution": "1080P",
+              "duration": 8
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "wan2.7-r2v",
+        "action": "image_to_video",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "image_with_roles": [
+            {
+              "url": "https://cdn.example.com/character.jpg",
+              "role": "reference_image"
+            }
+          ],
+          "resolution": "1080P",
+          "duration": 8
+        }
+      }
+    },
+    {
+      "name": "Official request videos/wan2.7-videoedit/generation: wan2.7-videoedit",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "wan2.7-videoedit",
+              "video_urls": [
+                "https://cdn.example.com/original.mp4"
+              ],
+              "prompt": "Contract fixture prompt",
+              "resolution": "1080P"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "wan2.7-videoedit",
+        "action": "text_to_video",
+        "requestBody": {
+          "video_urls": [
+            "https://cdn.example.com/original.mp4"
+          ],
+          "prompt": "Contract fixture prompt",
+          "resolution": "1080P"
+        }
+      }
+    },
+    {
+      "name": "Official request videos/wan2.7/generation: wan2.7",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "wan2.7",
+              "prompt": "Contract fixture prompt",
+              "resolution": "1080P",
+              "duration": 8,
+              "size": "16:9"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "wan2.7",
+        "action": "text_to_video",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "resolution": "1080P",
+          "duration": 8,
+          "size": "16:9"
+        }
+      }
+    },
+    {
+      "name": "Official request videos/wan3.0-video/generation: wan3.0-video",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "wan3.0-video",
+              "prompt": "Contract fixture prompt",
+              "resolution": "720P",
+              "size": "21:9",
+              "duration": 5,
+              "prompt_extend": false,
+              "seed": -1
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "wan3.0-video",
+        "action": "text_to_video",
+        "requestBody": {
+          "prompt": "Contract fixture prompt",
+          "resolution": "720P",
+          "size": "21:9",
+          "duration": 5,
+          "prompt_extend": false,
+          "seed": -1
+        }
+      }
+    },
+    {
+      "name": "Flux draft reference declares public gateway ownership",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "model": "flux-3-video",
+          "body": {
+            "kind": "json",
+            "value": {
+              "draft_from_task_id": "public_task",
+              "resolution": "fhd"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "flux-3-video",
+        "action": "text_to_video",
+        "requestBody": {
+          "draft_from_task_id": "public_task",
+          "resolution": "fhd"
+        },
+        "originTaskIds": [
+          "public_task"
+        ]
+      }
+    },
+    {
+      "name": "Flux draft cannot submit without authorized origin",
+      "hook": "buildSubmitRequest",
+      "args": [
+        {
+          "model": "flux-3-video",
+          "baseUrl": "https://api.apimart.ai",
+          "apiKey": "fixture-only",
+          "requestBody": {
+            "draft_from_task_id": "public_task",
+            "resolution": "fhd"
+          }
+        }
+      ],
+      "expectedError": "successful owned gateway task"
+    },
+    {
+      "name": "Flux draft substitutes only a resolved upstream task",
+      "hook": "buildSubmitRequest",
+      "args": [
+        {
+          "model": "flux-3-video",
+          "baseUrl": "https://api.apimart.ai",
+          "apiKey": "fixture-only",
+          "requestBody": {
+            "draft_from_task_id": "public_task",
+            "resolution": "fhd"
+          },
+          "originTasks": [
+            {
+              "taskId": "public_task",
+              "upstreamTaskId": "private_task",
+              "status": "SUCCESS"
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "url": "https://api.apimart.ai/v1/videos/generations",
+        "method": "POST",
+        "headers": {
+          "Authorization": "Bearer fixture-only",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "model": "flux-3-video",
+          "draft_from_task_id": "private_task",
+          "resolution": "fhd"
+        }
+      }
+    },
+    {
+      "name": "Nested Flux task reference is rejected",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "model": "flux-3-video",
+          "body": {
+            "kind": "json",
+            "value": {
+              "parameters": {
+                "draft_from_task_id": "private_task"
+              }
+            }
+          }
+        }
+      ],
+      "expectedError": "top-level gateway task"
+    },
+    {
+      "name": "Seedream defaults reserve layers and input material",
+      "hook": "extractUsage",
+      "args": [
+        {
+          "model": "seedream-5-5",
+          "requestBody": {
+            "layer_decomposition": true,
+            "image_urls": [
+              "https://fixture.example/input.png"
+            ]
+          }
+        }
+      ],
+      "expected": {
+        "credits": 10.85
+      }
+    },
+    {
+      "name": "Seedance standard dimensions map to native resolution",
+      "hook": "protocols",
+      "path": [
+        "openai_video",
+        "decodeRequest"
+      ],
+      "args": [
+        {
+          "model": "seedance-2.5",
+          "body": {
+            "kind": "json",
+            "value": {
+              "prompt": "A cat",
+              "size": "1280x720"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "seedance-2.5",
+        "action": "text_to_video",
+        "requestBody": {
+          "prompt": "A cat",
+          "duration": 5,
+          "resolution": "720p",
+          "size": "16:9",
+          "generate_audio": true,
+          "output_format": "mp4",
+          "omni_reference_task_type": "auto"
+        }
+      }
+    },
+    {
+      "name": "HTTP 202 accepted submission retains its polling identity",
+      "hook": "parseSubmitResponse",
+      "args": [
+        {
+          "model": "gpt-image-2.5-ext",
+          "requestBody": {
+            "prompt": "Circle"
+          }
+        },
+        {
+          "status": 202,
+          "body": {
+            "code": 202,
+            "data": {
+              "id": "accepted_task",
+              "object": "generation.task",
+              "status": "pending"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "taskId": "accepted_task",
+        "taskData": {
+          "code": 202,
+          "data": {
+            "id": "accepted_task",
+            "object": "generation.task",
+            "status": "pending"
+          }
+        },
+        "state": {
+          "requestedCount": 1,
+          "duration": 0,
+          "hasInputImages": false
+        }
+      }
+    },
+    {
+      "name": "Flux defaults retain a provider-compatible request",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "model": "flux-3-video",
+          "body": {
+            "kind": "json",
+            "value": {
+              "prompt": "A cat"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "flux-3-video",
+        "action": "text_to_video",
+        "requestBody": {
+          "prompt": "A cat"
+        }
+      }
+    },
+    {
+      "name": "Seedance edit accepts automatic duration at the host boundary",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "model": "seedance-2.5",
+          "body": {
+            "kind": "json",
+            "value": {
+              "prompt": "Edit",
+              "omni_reference_task_type": "edit",
+              "video_urls": [
+                "https://fixture.example/input.mp4"
+              ]
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "seedance-2.5",
+        "action": "text_to_video",
+        "requestBody": {
+          "prompt": "Edit",
+          "omni_reference_task_type": "edit",
+          "video_urls": [
+            "https://fixture.example/input.mp4"
+          ],
+          "output_format": "mp4",
+          "duration": -1,
+          "resolution": "720p",
+          "size": "adaptive",
+          "generate_audio": true
+        }
+      }
+    },
+    {
+      "name": "Wan edit preserves explicit zero at the host boundary",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "model": "wan2.7-videoedit",
+          "body": {
+            "kind": "json",
+            "value": {
+              "prompt": "Edit",
+              "duration": 0,
+              "video_urls": [
+                "https://fixture.example/input.mp4"
+              ]
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "wan2.7-videoedit",
+        "action": "text_to_video",
+        "requestBody": {
+          "prompt": "Edit",
+          "duration": 0,
+          "video_urls": [
+            "https://fixture.example/input.mp4"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Wan automatic duration reaches host billing",
+      "hook": "native",
+      "path": [
+        "decodeVideo"
+      ],
+      "args": [
+        {
+          "model": "wan3.0-video",
+          "body": {
+            "kind": "json",
+            "value": {
+              "prompt": "A cat",
+              "duration": -1
+            }
+          }
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "wan3.0-video",
+        "action": "text_to_video",
+        "requestBody": {
+          "prompt": "A cat",
+          "duration": -1
+        }
+      }
     }
   ]
 }
